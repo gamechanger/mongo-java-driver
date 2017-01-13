@@ -25,8 +25,8 @@ import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.Date;
 import java.util.Enumeration;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -61,7 +61,7 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
 
     private static final int MACHINE_IDENTIFIER;
     private static short PROCESS_IDENTIFIER;
-    private static AtomicBoolean hasProcessId = new AtomicBoolean(false);
+    private static final AtomicBoolean hasProcessId = new AtomicBoolean(false);
     private static final AtomicInteger NEXT_COUNTER = new AtomicInteger(new SecureRandom().nextInt());
 
     private static final char[] HEX_CHARS = new char[] {
@@ -193,9 +193,6 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
      * @param date the date
      */
     public ObjectId(final Date date) {
-        if (!hasProcessId) {
-            throw new RuntimeException("ProcessId not set - call setProcessId");
-        }
         this(dateToTimestampSeconds(date), MACHINE_IDENTIFIER, PROCESS_IDENTIFIER, NEXT_COUNTER.getAndIncrement(), false);
     }
 
@@ -207,9 +204,6 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
      * @throws IllegalArgumentException if the high order byte of counter is not zero
      */
     public ObjectId(final Date date, final int counter) {
-        if (!hasProcessId) {
-            throw new RuntimeException("ProcessId not set - call setProcessId");
-        }
         this(date, MACHINE_IDENTIFIER, PROCESS_IDENTIFIER, counter);
     }
 
@@ -241,6 +235,9 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
 
     private ObjectId(final int timestamp, final int machineIdentifier, final short processIdentifier, final int counter,
                      final boolean checkCounter) {
+        if (!hasProcessId.get()) {
+            throw new RuntimeException("ProcessId not set - call setProcessId");
+        }
         if ((machineIdentifier & 0xff000000) != 0) {
             throw new IllegalArgumentException("The machine identifier must be between 0 and 16777215 (it must fit in three bytes).");
         }
