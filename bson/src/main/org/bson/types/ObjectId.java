@@ -26,6 +26,7 @@ import java.security.SecureRandom;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -59,7 +60,8 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
     private static final int LOW_ORDER_THREE_BYTES = 0x00ffffff;
 
     private static final int MACHINE_IDENTIFIER;
-    private static final short PROCESS_IDENTIFIER;
+    private static short PROCESS_IDENTIFIER;
+    private static AtomicBoolean hasProcessId = new AtomicBoolean(false);
     private static final AtomicInteger NEXT_COUNTER = new AtomicInteger(new SecureRandom().nextInt());
 
     private static final char[] HEX_CHARS = new char[] {
@@ -70,6 +72,21 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
     private final int machineIdentifier;
     private final short processIdentifier;
     private final int counter;
+
+    /**
+     * Sets the processId - must be called before generating new instances
+     *
+     * This was implemented so that a system without some dependenceis can still
+     * generate IDs with correct process IDs.  See
+     * https://jira.mongodb.org/browse/JAVA-1958
+     *
+     * @param processId the current processId
+     */
+    public static void setProcessId(short processId) {
+        if (hasProcessId.compareAndSet(false, true)) {
+            PROCESS_IDENTIFIER = processId;
+        }
+    }
 
     /**
      * Gets a new object id.
@@ -176,6 +193,9 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
      * @param date the date
      */
     public ObjectId(final Date date) {
+        if (!hasProcessId) {
+            throw new RuntimeException("ProcessId not set - call setProcessId");
+        }
         this(dateToTimestampSeconds(date), MACHINE_IDENTIFIER, PROCESS_IDENTIFIER, NEXT_COUNTER.getAndIncrement(), false);
     }
 
@@ -187,6 +207,9 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
      * @throws IllegalArgumentException if the high order byte of counter is not zero
      */
     public ObjectId(final Date date, final int counter) {
+        if (!hasProcessId) {
+            throw new RuntimeException("ProcessId not set - call setProcessId");
+        }
         this(date, MACHINE_IDENTIFIER, PROCESS_IDENTIFIER, counter);
     }
 
@@ -488,7 +511,6 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
     static {
         try {
             MACHINE_IDENTIFIER = createMachineIdentifier();
-            PROCESS_IDENTIFIER = createProcessIdentifier();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -523,28 +545,6 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
         }
         machinePiece = machinePiece & LOW_ORDER_THREE_BYTES;
         return machinePiece;
-    }
-
-    // Creates the process identifier.  This does not have to be unique per class loader because
-    // NEXT_COUNTER will provide the uniqueness.
-    private static short createProcessIdentifier() {
-        // Fix for android
-        return (short) android.os.Process.myPid();
-        // short processId;
-        // try {
-        //     String processName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-        //     if (processName.contains("@")) {
-        //         processId = (short) Integer.parseInt(processName.substring(0, processName.indexOf('@')));
-        //     } else {
-        //         processId = (short) java.lang.management.ManagementFactory.getRuntimeMXBean().getName().hashCode();
-        //     }
-
-        // } catch (Throwable t) {
-        //     processId = (short) new SecureRandom().nextInt();
-        //     LOGGER.log(Level.WARNING, "Failed to get process identifier from JMX, using random number instead", t);
-        // }
-
-        // return processId;
     }
 
     private static byte[] parseHexString(final String s) {
