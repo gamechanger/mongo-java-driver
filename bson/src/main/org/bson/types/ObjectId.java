@@ -528,21 +528,23 @@ public final class ObjectId implements Comparable<ObjectId>, Serializable {
     // Creates the process identifier.  This does not have to be unique per class loader because
     // NEXT_COUNTER will provide the uniqueness.
     private static short createProcessIdentifier() {
-        short processId;
-        try {
-            String processName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-            if (processName.contains("@")) {
-                processId = (short) Integer.parseInt(processName.substring(0, processName.indexOf('@')));
-            } else {
-                processId = (short) java.lang.management.ManagementFactory.getRuntimeMXBean().getName().hashCode();
-            }
+        // Fix for android
+        return (short) android.os.Process.myPid();
+        // short processId;
+        // try {
+        //     String processName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
+        //     if (processName.contains("@")) {
+        //         processId = (short) Integer.parseInt(processName.substring(0, processName.indexOf('@')));
+        //     } else {
+        //         processId = (short) java.lang.management.ManagementFactory.getRuntimeMXBean().getName().hashCode();
+        //     }
 
-        } catch (Throwable t) {
-            processId = (short) new SecureRandom().nextInt();
-            LOGGER.log(Level.WARNING, "Failed to get process identifier from JMX, using random number instead", t);
-        }
+        // } catch (Throwable t) {
+        //     processId = (short) new SecureRandom().nextInt();
+        //     LOGGER.log(Level.WARNING, "Failed to get process identifier from JMX, using random number instead", t);
+        // }
 
-        return processId;
+        // return processId;
     }
 
     private static byte[] parseHexString(final String s) {
